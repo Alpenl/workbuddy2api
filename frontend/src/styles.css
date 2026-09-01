@@ -595,6 +595,13 @@ code {
   font-size: 12px;
 }
 
+.model-heading-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1067,6 +1074,10 @@ code {
   padding: 0 32px 0 10px;
 }
 
+.select-control.model-sort-control select {
+  width: 150px;
+}
+
 .select-control select:focus,
 .playground-settings textarea:focus,
 .composer textarea:focus {
@@ -1358,9 +1369,19 @@ code {
   }
 
   .account-actions,
-  .playground-toolbar {
+  .playground-toolbar,
+  .model-heading-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .select-control.model-sort-control {
+    min-width: 0;
+    flex: 1 1 150px;
+  }
+
+  .select-control.model-sort-control select {
+    width: 100%;
   }
 
   .account-actions .button {
