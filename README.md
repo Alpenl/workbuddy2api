@@ -157,7 +157,7 @@ Disabled ←────┘ (session 死亡，永久)
 | 端点 | 鉴权 | 说明 |
 |---|---|---|
 | `POST /v1/chat/completions` | Bearer | OpenAI 兼容聊天补全（流式/非流式） |
-| `GET /v1/models` | Bearer | 模型列表（动态拉取 + 静态兜底） |
+| `GET /v1/models` | Bearer | 模型列表（动态拉取 + 静态兜底；动态数据含可选 `credit_multiplier` 积分倍率） |
 | `GET /status` | Bearer | 账号状态汇总（total/healthy/cooling/disabled + 每账号详情） |
 | `GET /healthz` | 无 | 健康检查（无健康账号时 503） |
 | `POST /api/admin/oauth/start` | Bearer | 发起现有 CN OAuth 登录流程 |

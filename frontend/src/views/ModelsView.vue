@@ -24,6 +24,7 @@
             <tr>
               <th>模型 ID</th>
               <th>提供方</th>
+              <th class="numeric">积分倍率</th>
               <th class="numeric">上下文长度</th>
               <th class="numeric">最大输出</th>
               <th class="actions-column"><span class="sr-only">操作</span></th>
@@ -33,6 +34,7 @@
             <tr v-for="model in models" :key="model.id">
               <td><code class="model-id">{{ model.id }}</code></td>
               <td><span class="provider-label"><Box :size="14" />{{ model.owned_by }}</span></td>
+              <td class="numeric strong-number">{{ formatCreditMultiplier(model.credit_multiplier) }}</td>
               <td class="numeric">{{ formatNumber(model.context_length) }}</td>
               <td class="numeric">{{ model.max_output_tokens ? formatNumber(model.max_output_tokens) : '-' }}</td>
               <td class="actions-column">
@@ -54,6 +56,7 @@
           </header>
           <dl>
             <div><dt>提供方</dt><dd>{{ model.owned_by }}</dd></div>
+            <div><dt>积分倍率</dt><dd>{{ formatCreditMultiplier(model.credit_multiplier) }}</dd></div>
             <div><dt>上下文</dt><dd>{{ formatNumber(model.context_length) }}</dd></div>
             <div><dt>最大输出</dt><dd>{{ model.max_output_tokens ? formatNumber(model.max_output_tokens) : '-' }}</dd></div>
           </dl>
@@ -69,7 +72,7 @@
 
 <script setup lang="ts">
 import { Box, Boxes, Copy, RefreshCw } from '@lucide/vue'
-import { copyText, formatNumber } from '@/format'
+import { copyText, formatCreditMultiplier, formatNumber } from '@/format'
 import type { ModelInfo } from '@/types'
 
 defineProps<{ models: ModelInfo[]; loading: boolean }>()

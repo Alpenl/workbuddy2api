@@ -189,6 +189,9 @@ func (h *Handler) modelList() []map[string]any {
 			if mi.ContextWindow == 0 {
 				entry["context_length"] = 131072 // 兜底
 			}
+			if mi.CreditMultiplier != nil {
+				entry["credit_multiplier"] = *mi.CreditMultiplier
+			}
 			out = append(out, entry)
 		}
 		return out

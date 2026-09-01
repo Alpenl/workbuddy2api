@@ -31,6 +31,7 @@ export interface ModelInfo {
   owned_by: string
   context_length: number
   max_output_tokens?: number
+  credit_multiplier?: number
 }
 
 export interface ModelsResponse {

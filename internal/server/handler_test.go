@@ -329,9 +329,9 @@ func TestModelsDynamic(t *testing.T) {
 	dynamicModelsCache.lastFail = time.Time{}
 	dynamicModelsCache.Unlock()
 
-	// 假上游返回动态模型（含 agents + maxInputTokens/maxOutputTokens）
+	// 假上游返回动态模型（含 agents、token 限制与积分倍率）
 	up := newFakeUpstream(t, func(authz string) (int, string, bool) {
-		return 200, `{"code":0,"data":{"models":[{"id":"dyn-model-a","maxInputTokens":65536,"maxOutputTokens":8192},{"id":"dyn-model-b","maxInputTokens":131072,"maxOutputTokens":16384},{"id":"glm-9.9","maxInputTokens":262144,"maxOutputTokens":32768}],"agents":[{"name":"cli","models":["dyn-model-a","dyn-model-b","glm-9.9"]}]}}`, false
+		return 200, `{"code":0,"data":{"models":[{"id":"dyn-model-a","maxInputTokens":65536,"maxOutputTokens":8192,"credits":"x0.79 credits"},{"id":"dyn-model-b","maxInputTokens":131072,"maxOutputTokens":16384,"credits":"x0.00"},{"id":"glm-9.9","maxInputTokens":262144,"maxOutputTokens":32768}],"agents":[{"name":"cli","models":["dyn-model-a","dyn-model-b","glm-9.9"]}]}}`, false
 	})
 	p := testPoolWith(&auth.Auth{UID: "u1", AccessToken: "at1", ExpiresAt: 9999999999})
 	h := NewHandler(Config{Pool: p, Upstream: up})
@@ -365,12 +365,22 @@ func TestModelsDynamic(t *testing.T) {
 			if mm["max_output_tokens"].(float64) != 8192 {
 				t.Errorf("dyn-model-a max_output_tokens=%v want 8192", mm["max_output_tokens"])
 			}
+			if got, ok := mm["credit_multiplier"].(float64); !ok || got != 0.79 {
+				t.Errorf("dyn-model-a credit_multiplier=%v want 0.79", mm["credit_multiplier"])
+			}
 		case "glm-9.9":
 			if mm["context_length"].(float64) != 262144 {
 				t.Errorf("glm-9.9 context_length=%v want 262144", mm["context_length"])
 			}
 			if mm["max_output_tokens"].(float64) != 32768 {
 				t.Errorf("glm-9.9 max_output_tokens=%v want 32768", mm["max_output_tokens"])
+			}
+			if _, ok := mm["credit_multiplier"]; ok {
+				t.Errorf("glm-9.9 should omit unavailable credit_multiplier: %v", mm["credit_multiplier"])
+			}
+		case "dyn-model-b":
+			if got, ok := mm["credit_multiplier"].(float64); !ok || got != 0 {
+				t.Errorf("dyn-model-b credit_multiplier=%v want 0", mm["credit_multiplier"])
 			}
 		}
 	}

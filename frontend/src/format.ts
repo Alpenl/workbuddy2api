@@ -2,6 +2,11 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value || 0)
 }
 
+export function formatCreditMultiplier(value?: number): string {
+  if (value === undefined || !Number.isFinite(value)) return '-'
+  return `x${value.toFixed(2)}`
+}
+
 export function compactUID(uid: string): string {
   if (uid.length <= 18) return uid
   return `${uid.slice(0, 8)}...${uid.slice(-6)}`

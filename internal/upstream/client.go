@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -268,13 +270,28 @@ func (c *Client) ChatStream(a *auth.Auth, body []byte) (rc io.ReadCloser, status
 	return resp.Body, resp.StatusCode, nil, nil
 }
 
-// ModelInfo 动态模型信息（含 maxInputTokens/maxOutputTokens）。
+// ModelInfo 动态模型信息（含 token 限制和可选积分倍率）。
 type ModelInfo struct {
-	ID            string
-	Name          string
-	ContextWindow int64    // = maxInputTokens
-	MaxTokens     int64    // = maxOutputTokens
-	Efforts       []string // reasoning.supportedEfforts（空=未知/固定档）
+	ID               string
+	Name             string
+	ContextWindow    int64    // = maxInputTokens
+	MaxTokens        int64    // = maxOutputTokens
+	CreditMultiplier *float64 // credits，例如 "x0.79 credits"；nil 表示上游未提供
+	Efforts          []string // reasoning.supportedEfforts（空=未知/固定档）
+}
+
+func parseCreditMultiplier(raw string) *float64 {
+	value := strings.TrimSpace(raw)
+	value = strings.TrimPrefix(strings.TrimPrefix(value, "x"), "X")
+	parts := strings.Fields(value)
+	if len(parts) == 0 {
+		return nil
+	}
+	multiplier, err := strconv.ParseFloat(parts[0], 64)
+	if err != nil || multiplier < 0 || math.IsNaN(multiplier) || math.IsInf(multiplier, 0) {
+		return nil
+	}
+	return &multiplier
 }
 
 // FetchModels 调上游动态模型接口。
@@ -308,6 +325,7 @@ func (c *Client) FetchModels(a *auth.Auth) ([]ModelInfo, error) {
 				Name            string `json:"name"`
 				MaxInputTokens  int64  `json:"maxInputTokens"`
 				MaxOutputTokens int64  `json:"maxOutputTokens"`
+				Credits         string `json:"credits"`
 				Disabled        bool   `json:"disabled"`
 				Reasoning       struct {
 					Effort           string   `json:"effort"`
@@ -341,6 +359,7 @@ func (c *Client) FetchModels(a *auth.Auth) ([]ModelInfo, error) {
 		Name            string
 		MaxInputTokens  int64
 		MaxOutputTokens int64
+		Credits         string
 		Disabled        bool
 		Efforts         []string
 	}, len(env.Data.Models))
@@ -350,9 +369,18 @@ func (c *Client) FetchModels(a *auth.Auth) ([]ModelInfo, error) {
 			Name            string
 			MaxInputTokens  int64
 			MaxOutputTokens int64
+			Credits         string
 			Disabled        bool
 			Efforts         []string
-		}{m.ID, m.Name, m.MaxInputTokens, m.MaxOutputTokens, m.Disabled, m.Reasoning.SupportedEfforts}
+		}{
+			ID:              m.ID,
+			Name:            m.Name,
+			MaxInputTokens:  m.MaxInputTokens,
+			MaxOutputTokens: m.MaxOutputTokens,
+			Credits:         m.Credits,
+			Disabled:        m.Disabled,
+			Efforts:         m.Reasoning.SupportedEfforts,
+		}
 	}
 	out := make([]ModelInfo, 0, len(cliIDs))
 	for _, id := range cliIDs {
@@ -361,11 +389,12 @@ func (c *Client) FetchModels(a *auth.Auth) ([]ModelInfo, error) {
 			continue
 		}
 		out = append(out, ModelInfo{
-			ID:            m.ID,
-			Name:          m.Name,
-			ContextWindow: m.MaxInputTokens,
-			MaxTokens:     m.MaxOutputTokens,
-			Efforts:       m.Efforts,
+			ID:               m.ID,
+			Name:             m.Name,
+			ContextWindow:    m.MaxInputTokens,
+			MaxTokens:        m.MaxOutputTokens,
+			CreditMultiplier: parseCreditMultiplier(m.Credits),
+			Efforts:          m.Efforts,
 		})
 	}
 	if len(out) == 0 {
