@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"workbuddy2api/internal/pool"
@@ -23,6 +24,24 @@ type Config struct {
 // Scheduler 调度器。
 type Scheduler struct {
 	cfg Config
+	mu  sync.Mutex
+}
+
+// AccountResult is a sanitized result for a maintenance operation.
+type AccountResult struct {
+	UID      string `json:"uid"`
+	Nickname string `json:"nickname,omitempty"`
+	Credits  int64  `json:"credits"`
+	OK       bool   `json:"ok"`
+	Message  string `json:"message,omitempty"`
+}
+
+// OperationReport summarizes a manual or scheduled account operation.
+type OperationReport struct {
+	Total     int             `json:"total"`
+	Succeeded int             `json:"succeeded"`
+	Failed    int             `json:"failed"`
+	Accounts  []AccountResult `json:"accounts"`
 }
 
 // New 构建。
@@ -84,7 +103,10 @@ func contains(hours []int, h int) bool {
 
 // RunCheckinNow 立即对所有账号执行签到 + 余额刷新 + 解冻。
 // 冷却中的账号也参与（签到就是为了解冻它们）；禁用的跳过。
-func (s *Scheduler) RunCheckinNow() {
+func (s *Scheduler) RunCheckinNow() OperationReport {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	report := OperationReport{Accounts: []AccountResult{}}
 	for _, st := range s.cfg.Pool.List() {
 		if st.Disabled {
 			continue
@@ -93,21 +115,64 @@ func (s *Scheduler) RunCheckinNow() {
 		if a == nil || a.RefreshToken == "" {
 			continue
 		}
+		report.Total++
+		result := AccountResult{UID: st.UID, Nickname: st.Nickname, Credits: st.Credits}
 		if err := s.cfg.Upstream.DailyCheckin(a); err != nil {
 			log.Printf("checkin %s: %v", st.UID, err)
-			// 已签到等业务错误也继续走余额查询
+			result.Message = err.Error()
 		}
 		remain, err := s.cfg.Upstream.UserResource(a)
 		if err != nil {
 			log.Printf("user-resource %s: %v", st.UID, err)
+			result.Message = err.Error()
+			report.Failed++
+			report.Accounts = append(report.Accounts, result)
 			continue
 		}
 		s.cfg.Pool.ReenableIfCredits(st.UID, remain)
+		result.Credits = remain
+		result.OK = true
+		report.Succeeded++
+		report.Accounts = append(report.Accounts, result)
 	}
+	return report
+}
+
+// RefreshCreditsNow refreshes balances without performing a check-in.
+func (s *Scheduler) RefreshCreditsNow() OperationReport {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	report := OperationReport{Accounts: []AccountResult{}}
+	for _, st := range s.cfg.Pool.List() {
+		if st.Disabled {
+			continue
+		}
+		a := s.cfg.Pool.AuthByUID(st.UID)
+		if a == nil || a.AccessToken == "" {
+			continue
+		}
+		report.Total++
+		result := AccountResult{UID: st.UID, Nickname: st.Nickname, Credits: st.Credits}
+		remain, err := s.cfg.Upstream.UserResource(a)
+		if err != nil {
+			result.Message = err.Error()
+			report.Failed++
+			report.Accounts = append(report.Accounts, result)
+			continue
+		}
+		s.cfg.Pool.ReenableIfCredits(st.UID, remain)
+		result.Credits = remain
+		result.OK = true
+		report.Succeeded++
+		report.Accounts = append(report.Accounts, result)
+	}
+	return report
 }
 
 // RunKeepaliveNow 立即对所有账号刷新 token；session 死亡的自动禁用。
 func (s *Scheduler) RunKeepaliveNow() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, st := range s.cfg.Pool.List() {
 		if st.Disabled {
 			continue

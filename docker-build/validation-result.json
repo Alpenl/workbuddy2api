@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-09-01T16:34:16+08:00",
+  "phase": "validation",
+  "outcome": "success",
+  "container_startup": {
+    "status": "healthy",
+    "compose_command": "docker run with read-only rootfs, dropped capabilities, and validation bind mounts",
+    "wait_seconds": 1,
+    "all_containers_up": true,
+    "crash_detected": false
+  },
+  "migration": {
+    "applicable": false,
+    "orm": null,
+    "expected_count": 0,
+    "actual_count": 0,
+    "tables_exist": null,
+    "tables_verified": [],
+    "status": "not_applicable",
+    "verification_command": null
+  },
+  "http_health": {
+    "url": "http://127.0.0.1:17863/healthz",
+    "http_code": 200,
+    "acceptable": true,
+    "notes": "Health check reported one healthy account; root and authenticated status endpoints also returned 200."
+  },
+  "runtime_security": {
+    "user": "1000:1000",
+    "read_only_root_filesystem": true,
+    "capabilities_dropped": ["ALL"],
+    "writable_mounts_verified": ["/app/auths", "/app/data"]
+  },
+  "browser_validation": {
+    "desktop_viewport": "1440x1000",
+    "mobile_viewport": "390x844",
+    "horizontal_overflow": false,
+    "accessibility_violations": 0,
+    "accessibility_incomplete": 0,
+    "javascript_errors": 0
+  },
+  "log_analysis": {
+    "error_count": 0,
+    "migration_errors": [],
+    "critical_errors": [],
+    "warnings": []
+  },
+  "not_applicable_checks": [
+    "database_connected",
+    "migrations_executed",
+    "tables_created"
+  ],
+  "checklist": {
+    "image_built": true,
+    "container_started": true,
+    "database_connected": true,
+    "migrations_executed": true,
+    "tables_created": true,
+    "http_valid_response": true,
+    "no_runtime_errors": true,
+    "healthcheck_passed": true
+  },
+  "summary": "All applicable build, startup, HTTP, security, browser, and health checks passed; this service has no database or migrations."
+}

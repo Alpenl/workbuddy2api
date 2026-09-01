@@ -627,3 +627,17 @@ func TestFlushIdempotentWhenClean(t *testing.T) {
 		t.Fatalf("flush on clean pool should not write: %v", err)
 	}
 }
+
+func TestReauthorizeClearsDisabledState(t *testing.T) {
+	p := New("")
+	p.Add(&auth.Auth{UID: "u1", AccessToken: "old"})
+	p.Disable("u1", "session dead")
+	p.Reauthorize(&auth.Auth{UID: "u1", Nickname: "fresh", AccessToken: "new"})
+	status, ok := p.Status("u1")
+	if !ok || status.Disabled || status.Cooling || status.Reason != "" {
+		t.Fatalf("status=%+v ok=%v", status, ok)
+	}
+	if account := p.AuthByUID("u1"); account == nil || account.AccessToken != "new" || account.Nickname != "fresh" {
+		t.Fatalf("account=%+v", account)
+	}
+}

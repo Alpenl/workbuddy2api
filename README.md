@@ -1,6 +1,6 @@
 # WorkBuddy2API
 
-> WorkBuddy CN（CodeBuddy / copilot.tencent.com）的 OpenAI 兼容反向代理，支持 OAuth 登录、多账号轮转、工具调用与流式响应。
+> WorkBuddy CN（CodeBuddy / copilot.tencent.com）的 OpenAI 兼容反向代理，内置 Web 管理界面，支持 OAuth 登录、多账号轮转、工具调用与流式响应。
 
 ## 功能特性
 
@@ -15,32 +15,41 @@
 - 📈 **请求级日志** — 每个 `/v1/chat/completions` 请求打表格日志（seq/TTFB/uid/tokens/latency）
 - 🏥 **健康检查** — `/healthz` 无健康账号时返回 503，可接负载均衡器
 - 📉 **状态汇总** — `/status` 返回 total/healthy/cooling/disabled 计数 + 每账号完整画像
+- 🖥 **Web 控制台** — 账户状态、OAuth 登录、签到、积分、模型列表与聊天调试
+- 📦 **多架构镜像** — GitHub Actions 自动发布 amd64/arm64 镜像到 GHCR
 
 ## 快速开始
 
 ### 1. 克隆 & 配置
 
 ```bash
-git clone https://github.com/Sliverkiss/workbuddy2api.git
+git clone https://github.com/Alpenl/workbuddy2api.git
 cd workbuddy2api
 cp config.example.json config.json
 # 编辑 config.json，设置 api_key
+mkdir -p auths data
 ```
 
-### 2. 添加账号
-
-```bash
-./login.sh
-# 打开浏览器登录 → 按 y → 自动落盘 auths/ → 重启容器
-```
-
-### 3. 启动服务
+### 2. 启动服务
 
 ```bash
 docker compose up -d --build
 ```
 
-### 4. 验证
+也可以直接使用 GitHub Container Registry 中的多架构镜像：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+### 3. 打开 Web 控制台
+
+访问 `http://localhost:7863/`，输入 `config.json` 中的 `api_key`。未配置 API Key 时可留空。
+
+Web 控制台中的“添加账户”会直接执行现有 WorkBuddy CN OAuth 流程，不需要 NAS 安装 Go。
+
+### 4. API 验证
 
 ```bash
 # 模型列表
@@ -151,6 +160,10 @@ Disabled ←────┘ (session 死亡，永久)
 | `GET /v1/models` | Bearer | 模型列表（动态拉取 + 静态兜底） |
 | `GET /status` | Bearer | 账号状态汇总（total/healthy/cooling/disabled + 每账号详情） |
 | `GET /healthz` | 无 | 健康检查（无健康账号时 503） |
+| `POST /api/admin/oauth/start` | Bearer | 发起现有 CN OAuth 登录流程 |
+| `POST /api/admin/oauth/poll` | Bearer | 检查 OAuth 登录结果并安全落盘 |
+| `POST /api/admin/checkin` | Bearer | 立即执行现有批量签到任务 |
+| `POST /api/admin/credits/refresh` | Bearer | 立即执行现有积分查询任务 |
 
 ## 稳定性设计
 
@@ -167,8 +180,14 @@ Disabled ←────┘ (session 死亡，永久)
 ### 测试
 
 ```bash
+cd frontend
+corepack pnpm install --frozen-lockfile
+corepack pnpm test
+corepack pnpm build
+cd ..
+
 go build ./...
-go test ./... -count=20  # 20 次全绿（无 flake）
+go test ./...
 go vet ./...
 gofmt -l .  # 应为空
 ```
@@ -187,6 +206,8 @@ internal/
   scheduler/  # 定时签到 + 积分查询
   server/     # HTTP handler + 请求日志
   upstream/   # 上游 API 封装（chat/billing/auth）
+  web/        # Vue 构建产物的 Go 内嵌入口
+frontend/     # Vue 3 + Vite Web 控制台
 ```
 
 ## 免责声明

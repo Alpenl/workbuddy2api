@@ -159,6 +159,25 @@ func (p *Pool) Add(a *auth.Auth) {
 	p.upsertLocked(a)
 }
 
+// Reauthorize installs newly issued credentials and clears disabled/cooling state.
+// A successful OAuth login is the manual recovery path for an expired session.
+func (p *Pool) Reauthorize(a *auth.Auth) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if e, ok := p.byUID[a.UID]; ok {
+		e.a = a
+		e.disabled = false
+		e.reason = ""
+		e.until = time.Time{}
+		e.coolKind = 0
+		e.errCount = 0
+		p.dirty.Store(true)
+		return
+	}
+	p.byUID[a.UID] = &entry{a: a}
+	p.dirty.Store(true)
+}
+
 // SyncToDir 用最新扫描结果对齐池：新账号加入、消失的账号剔除（状态保留）。
 // 剔除结果持久化回 state.json，避免已删账号在下次启动时被 load() 复活。
 func (p *Pool) SyncToDir(auths []*auth.Auth) {

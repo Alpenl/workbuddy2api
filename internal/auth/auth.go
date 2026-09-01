@@ -154,7 +154,14 @@ func (a *Auth) SaveAtomic() error {
 	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, a.FilePath)
+	if err := os.Chmod(tmp, 0o600); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, a.FilePath); err != nil {
+		return err
+	}
+	return os.Chmod(a.FilePath, 0o600)
 }
 
 // LoadDir 扫描 dir 下 workbuddy*.json，只收 wantRegion（"cn"/"global"）。

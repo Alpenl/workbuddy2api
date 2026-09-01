@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,16 +12,36 @@ import (
 	"sync"
 	"time"
 
+	"workbuddy2api/internal/auth"
+	"workbuddy2api/internal/oauth"
 	"workbuddy2api/internal/pool"
+	"workbuddy2api/internal/scheduler"
 	"workbuddy2api/internal/upstream"
+	"workbuddy2api/internal/web"
 )
+
+// OAuthClient is the existing WorkBuddy device authorization flow.
+type OAuthClient interface {
+	Start(context.Context) (oauth.State, error)
+	Poll(context.Context, string) (*auth.Auth, error)
+}
+
+// Maintenance exposes the scheduler operations already available to the CLI.
+type Maintenance interface {
+	RunCheckinNow() scheduler.OperationReport
+	RefreshCreditsNow() scheduler.OperationReport
+}
 
 // Config handler 依赖。
 type Config struct {
-	Pool      *pool.Pool
-	Upstream  *upstream.Client
-	APIKey    string // 空 = 不鉴权
-	MaxRotate int    // 单请求最多换号次数，默认 3
+	Pool        *pool.Pool
+	Upstream    *upstream.Client
+	OAuth       OAuthClient
+	Maintenance Maintenance
+	AuthDir     string
+	Region      string
+	APIKey      string // 空 = 不鉴权
+	MaxRotate   int    // 单请求最多换号次数，默认 3
 	// HardCooldown 余额不足冷却时长（默认 12h）。仅作历史兼容保留：
 	// config.example.json 的 cooldown.hard_credit 键仍要求存在，但实际行为已由
 	// Pool.CooldownUntilTomorrow4AM 接管（ErrHardCredit 统一冷却到次日 04:00，等签到恢复）。
@@ -33,8 +54,10 @@ type Config struct {
 
 // Handler 主路由。
 type Handler struct {
-	cfg Config
-	mux *http.ServeMux
+	cfg        Config
+	mux        *http.ServeMux
+	oauthMu    sync.Mutex
+	oauthFlows map[string]oauthFlow
 }
 
 // NewHandler 构建 handler。
@@ -57,11 +80,24 @@ func NewHandler(cfg Config) *Handler {
 	if cfg.RefreshSkew <= 0 {
 		cfg.RefreshSkew = 10 * time.Minute
 	}
-	h := &Handler{cfg: cfg, mux: http.NewServeMux()}
+	if cfg.AuthDir == "" {
+		cfg.AuthDir = "./auths"
+	}
+	if cfg.Region == "" {
+		cfg.Region = "cn"
+	}
+	h := &Handler{cfg: cfg, mux: http.NewServeMux(), oauthFlows: make(map[string]oauthFlow)}
 	h.mux.HandleFunc("POST /v1/chat/completions", h.withAuth(h.chatCompletions))
 	h.mux.HandleFunc("GET /v1/models", h.withAuth(h.models))
 	h.mux.HandleFunc("GET /status", h.withAuth(h.status))
 	h.mux.HandleFunc("GET /healthz", h.healthz)
+	h.mux.HandleFunc("POST /api/admin/oauth/start", h.withAuth(h.oauthStart))
+	h.mux.HandleFunc("POST /api/admin/oauth/poll", h.withAuth(h.oauthPoll))
+	h.mux.HandleFunc("POST /api/admin/checkin", h.withAuth(h.checkinNow))
+	h.mux.HandleFunc("POST /api/admin/credits/refresh", h.withAuth(h.refreshCredits))
+	h.mux.HandleFunc("/api/", h.apiNotFound)
+	h.mux.HandleFunc("/v1/", h.apiNotFound)
+	h.mux.Handle("/", web.Handler())
 	return h
 }
 

@@ -61,7 +61,7 @@ RESULT=$("$LOGIN_BIN" poll) || {
 
 TOKEN=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
 REFRESH=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['refresh_token'])")
-EXPIRES_IN=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['expires_in'])")
+EXPIRES_AT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['expires_at'])")
 DOMAIN=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('domain',''))")
 USER_ID=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('uid',''))")
 ENT_ID=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('enterprise_id',''))")
@@ -71,8 +71,6 @@ if [[ -z "$USER_ID" ]]; then
     echo "无法获取 uid，请检查 token 是否有效"
     exit 1
 fi
-
-EXPIRES_AT=$(( $(date +%s) + EXPIRES_IN ))
 
 # ─── 签到（CN：POST codebuddy.cn/v2/billing/meter/daily-checkin，幂等不阻塞）───
 python3 - <<PYEOF

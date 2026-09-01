@@ -16,6 +16,15 @@ config.json
 # Build artifacts
 *.tmp
 __pycache__/
+frontend/node_modules/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/src/**/*.js
+frontend/src/**/*.vue.js
+frontend/vite.config.js
+frontend/vite.config.d.ts
+internal/web/dist/*
+!internal/web/dist/.gitkeep
 
 # Backups (contains auth tokens)
 backups/
@@ -31,3 +40,4 @@ docs/
 # 设计/计划文档（但 README.md 必须进版本库）
 *.md
 !README.md
+!docker-build/deploy.md

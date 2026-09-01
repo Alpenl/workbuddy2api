@@ -63,6 +63,13 @@ func TestSaveAtomicRoundtrip(t *testing.T) {
 	if _, err := os.Stat(fp + ".tmp"); !os.IsNotExist(err) {
 		t.Error("tmp file should not remain")
 	}
+	info, err := os.Stat(fp)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("mode=%#o want 0600", info.Mode().Perm())
+	}
 	raw, err := os.ReadFile(fp)
 	if err != nil {
 		t.Fatalf("read: %v", err)

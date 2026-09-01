@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"workbuddy2api/internal/auth"
+	"workbuddy2api/internal/oauth"
 	"workbuddy2api/internal/pool"
 	"workbuddy2api/internal/scheduler"
 	"workbuddy2api/internal/server"
@@ -58,6 +59,10 @@ func main() {
 	h := server.NewHandler(server.Config{
 		Pool:         p,
 		Upstream:     up,
+		OAuth:        oauth.NewClient(),
+		Maintenance:  sch,
+		AuthDir:      cfg.AuthDir,
+		Region:       cfg.Region,
 		APIKey:       cfg.APIKey,
 		HardCooldown: cfg.HardCreditDur,
 		SoftCooldown: cfg.SoftRateDur,

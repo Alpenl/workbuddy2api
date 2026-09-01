@@ -95,7 +95,7 @@ func TestRunCheckinReenablesCoolingAccount(t *testing.T) {
 		CheckinHours:   []int{9, 21},
 		KeepaliveHours: []int{22},
 	})
-	s.RunCheckinNow()
+	report := s.RunCheckinNow()
 	if f.checkinCalls.Load() != 1 {
 		t.Errorf("checkin calls=%d", f.checkinCalls.Load())
 	}
@@ -105,6 +105,23 @@ func TestRunCheckinReenablesCoolingAccount(t *testing.T) {
 	}
 	if st.Credits != 500 {
 		t.Errorf("credits=%d want 500", st.Credits)
+	}
+	if report.Total != 1 || report.Succeeded != 1 || report.Failed != 0 || len(report.Accounts) != 1 {
+		t.Fatalf("report=%+v", report)
+	}
+}
+
+func TestRefreshCreditsNow(t *testing.T) {
+	f := &fakeUpstream{resourceRemain: 321}
+	srv := f.server()
+	defer srv.Close()
+	p := pool.New("")
+	p.Add(&auth.Auth{UID: "u1", AccessToken: "at", RefreshToken: "rt", ExpiresAt: 9999999999})
+	up := &upstream.Client{HTTP: srv.Client(), ChatBaseCN: srv.URL, BillingBaseCN: srv.URL, ChatBaseGlobal: srv.URL, BillingBaseGlob: srv.URL}
+	report := New(Config{Pool: p, Upstream: up}).RefreshCreditsNow()
+	status, _ := p.Status("u1")
+	if status.Credits != 321 || report.Succeeded != 1 || report.Failed != 0 {
+		t.Fatalf("status=%+v report=%+v", status, report)
 	}
 }
 

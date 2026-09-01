@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-09-01T16:04:25+08:00",
+  "phase": "generate",
+  "files_generated": [
+    { "path": "Dockerfile", "size_bytes": 1869, "description": "Pinned four-stage Vue and Go production Dockerfile" },
+    { "path": ".dockerignore", "size_bytes": 304, "description": "Build context exclusions for secrets, local data, and generated assets" },
+    { "path": "docker-compose.yml", "size_bytes": 561, "description": "Hardened NAS Compose service using the GHCR image" },
+    { "path": ".github/workflows/docker.yml", "size_bytes": 1560, "description": "Multi-platform GHCR build and publish workflow" },
+    { "path": "docker-build/deploy.md", "size_bytes": 1709, "description": "Deployment guide for Compose, Docker Run, and GHCR" },
+    { "path": "README.md", "size_bytes": 7808, "description": "Updated Web console, image, endpoint, and development instructions" }
+  ],
+  "template_used": "golang.dockerfile",
+  "key_decisions": [
+    { "decision": "vue_then_go_embed", "rationale": "Vite must populate internal/web/dist before Go compiles the embedded filesystem." },
+    { "decision": "multiarch_native_builders", "rationale": "Builders run on BUILDPLATFORM while pure Go cross-compiles for TARGETOS/TARGETARCH, avoiding emulation for amd64/arm64." },
+    { "decision": "pinned_manifest_digests", "rationale": "Verified Node 22.22.2, Go 1.26.2, and Alpine 3.23.3 manifest lists provide reproducible amd64/arm64 inputs." },
+    { "decision": "uid_1000_runtime", "rationale": "The NAS service lives under /vol1/1000 and OAuth must write credentials to the bind-mounted auths directory." },
+    { "decision": "example_config_only", "rationale": "The image contains config.example.json while .dockerignore excludes the real config and all credentials." },
+    { "decision": "tests_in_build", "rationale": "Both test suites are fast and validate the exact sources before an image is published." }
+  ],
+  "base_image": "alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659",
+  "build_stages": ["web-deps", "web-build", "go-build", "runtime"],
+  "exposed_port": 7863,
+  "non_root_user": "app (1000:1000)",
+  "env_vars": {
+    "build_time": [],
+    "runtime_required": [],
+    "runtime_optional": [
+      { "name": "TZ", "default": "Asia/Shanghai", "optional": true },
+      { "name": "WB2A_PORT", "default": "7863", "optional": true },
+      { "name": "WB2A_IMAGE", "default": "ghcr.io/alpenl/workbuddy2api:latest", "optional": true }
+    ]
+  },
+  "compose_services": ["wb2api"],
+  "validation_checklist": {
+    "fixed_base_image_version": true,
+    "multi_stage_build": true,
+    "non_root_user": true,
+    "expose_matches_detected_port": true,
+    "healthcheck_present": true,
+    "dockerignore_excludes_sensitive": true
+  }
+}

@@ -1,13 +1,24 @@
 services:
   wb2api:
-    build: .
+    image: ${WB2A_IMAGE:-ghcr.io/alpenl/workbuddy2api:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: workbuddy2api
     restart: unless-stopped
+    init: true
     environment:
-      - TZ=Asia/Shanghai
+      TZ: ${TZ:-Asia/Shanghai}
     ports:
-      - "7863:7863"
+      - "${WB2A_PORT:-7863}:7863"
     volumes:
       - ./auths:/app/auths
       - ./data:/app/data
       - ./config.json:/app/config.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

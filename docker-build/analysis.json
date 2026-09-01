@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-09-01T15:58:40+08:00",
+  "phase": "analysis",
+  "project": {
+    "language": "go+typescript",
+    "framework": "net/http+vue-vite",
+    "framework_version": "go1.22.5, vue3.5.42, vite5.4.21",
+    "package_manager": "go-modules+pnpm",
+    "package_manager_version": "go1.22.5, pnpm9.15.9"
+  },
+  "package_manager_config": {
+    "lockfile_disabled": false,
+    "config_file": "frontend/package.json",
+    "install_command": "cd frontend && pnpm install --frozen-lockfile"
+  },
+  "workspace": {
+    "enabled": false,
+    "type": "two-stage source tree",
+    "config_file": null,
+    "packages": ["cmd/server", "frontend"],
+    "patches_dir": null,
+    "package_count": 2
+  },
+  "build": {
+    "command": "pnpm test && pnpm build; go test ./...; go build ./cmd/server",
+    "resolved_command": "cd frontend && pnpm install --frozen-lockfile && pnpm test && pnpm build; go test ./...; CGO_ENABLED=0 go build -trimpath -ldflags=-s -w -o wb2api ./cmd/server",
+    "output_dir": "internal/web/dist + wb2api",
+    "standalone_mode": false,
+    "env_required": []
+  },
+  "run": {
+    "command": "/app/wb2api -config /app/config.json",
+    "entry_point": "cmd/server/main.go",
+    "port": 7863,
+    "env_required": []
+  },
+  "external_services": {
+    "database": { "type": "none", "required": false },
+    "redis": { "required": false },
+    "s3": { "required": false },
+    "search": { "type": "none" },
+    "message_queue": { "type": "none" }
+  },
+  "system_libs": [],
+  "migration_system": {
+    "detected": false,
+    "orm": null,
+    "migration_dir": null,
+    "migration_count": 0,
+    "execution_timing": "not_applicable",
+    "execution_command": null,
+    "execution_env_var": null,
+    "standalone_with_orm": false,
+    "requires_separate_deps": false,
+    "warnings": []
+  },
+  "build_complexity": {
+    "original_build_script": "go build ./cmd/server with no frontend stage",
+    "heavy_operations": [
+      { "name": "frontend-typecheck-and-build", "essential": true, "recommendation": "Keep in Docker build" },
+      { "name": "go-and-frontend-tests", "essential": true, "recommendation": "Keep; project is small and tests are fast" }
+    ],
+    "workspace_package_count": 2,
+    "memory_risk": "low",
+    "docker_build_command": "pnpm test && pnpm build; go test ./...; CGO_ENABLED=0 go build ./cmd/server",
+    "memory_limit": null,
+    "skipped_commands": []
+  },
+  "custom_cli": {
+    "detected": true,
+    "entry_points": ["cmd/login", "cmd/credit", "cmd/signin"],
+    "included_in_runtime_image": false
+  },
+  "native_modules": { "rust_required": false, "cgo_required": false },
+  "complexity": "L3",
+  "max_iterations": 5,
+  "existing_docker": {
+    "has_dockerfile": true,
+    "has_compose": true,
+    "has_dockerignore": false
+  },
+  "warnings": [
+    "Never copy config.json, auths, data, tokens, or keys into the image",
+    "OAuth writes auth files at runtime, so the non-root container user must be able to write the NAS bind mount",
+    "The health endpoint intentionally returns 503 when no healthy account is loaded"
+  ],
+  "detection_steps_completed": 17
+}
