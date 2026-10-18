@@ -130,8 +130,9 @@ func (p *Pool) SetRandomSource(fn func(n int64) int64) {
 
 // startFlusher 每 flushInterval 检查 dirty 标志，有变更则 saveLocked 落盘。
 func (p *Pool) startFlusher() {
+	// Capture the interval before returning; tests may change it for the next pool.
+	t := time.NewTicker(flushInterval)
 	go func() {
-		t := time.NewTicker(flushInterval)
 		defer t.Stop()
 		for range t.C {
 			p.mu.Lock()
