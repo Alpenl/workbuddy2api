@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"workbuddy2api/internal/auth"
+	"workbuddy2api/internal/logstore"
 	"workbuddy2api/internal/oauth"
 	"workbuddy2api/internal/pool"
 	"workbuddy2api/internal/scheduler"
@@ -41,7 +42,8 @@ type Config struct {
 	AuthDir     string
 	Region      string
 	APIKey      string // 空 = 不鉴权
-	MaxRotate   int    // 单请求最多换号次数，默认 3
+	Logs        *logstore.Store
+	MaxRotate   int // 单请求最多换号次数，默认 3
 	// HardCooldown 余额不足冷却时长（默认 12h）。仅作历史兼容保留：
 	// config.example.json 的 cooldown.hard_credit 键仍要求存在，但实际行为已由
 	// Pool.CooldownUntilTomorrow4AM 接管（ErrHardCredit 统一冷却到次日 04:00，等签到恢复）。
@@ -95,6 +97,7 @@ func NewHandler(cfg Config) *Handler {
 	h.mux.HandleFunc("POST /api/admin/oauth/poll", h.withAuth(h.oauthPoll))
 	h.mux.HandleFunc("POST /api/admin/checkin", h.withAuth(h.checkinNow))
 	h.mux.HandleFunc("POST /api/admin/credits/refresh", h.withAuth(h.refreshCredits))
+	h.mux.HandleFunc("GET /api/admin/logs", h.withAuth(h.logs))
 	h.mux.HandleFunc("/api/", h.apiNotFound)
 	h.mux.HandleFunc("/v1/", h.apiNotFound)
 	h.mux.Handle("/", web.Handler())
@@ -250,6 +253,7 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	// 请求级统计：出口即打一行表格日志（任何路径都会走到）。
 	st := newChatStat(time.Now(), body, peek.Stream)
+	st.logs = h.cfg.Logs
 	defer st.done()
 
 	tried := map[string]bool{}

@@ -50,6 +50,7 @@
       @refresh="loadModels(true)"
       @copied="showCopyResult"
     />
+    <LogsView v-else-if="currentPage === 'logs'" @copied="showCopyResult" />
     <PlaygroundView v-else :models="models" />
   </AppShell>
 
@@ -80,10 +81,11 @@ import AccountsView from '@/views/AccountsView.vue'
 import ModelsView from '@/views/ModelsView.vue'
 import OverviewView from '@/views/OverviewView.vue'
 import PlaygroundView from '@/views/PlaygroundView.vue'
+import LogsView from '@/views/LogsView.vue'
 
 const SESSION_KEY = 'workbuddy2api:api-key'
 const THEME_KEY = 'workbuddy2api:theme'
-const pages: PageID[] = ['overview', 'accounts', 'models', 'playground']
+const pages: PageID[] = ['overview', 'accounts', 'models', 'playground', 'logs']
 
 const emptyStatus = (): StatusResponse => ({ accounts: [], total: 0, healthy: 0, cooling: 0, disabled: 0 })
 const bootstrapping = ref(true)

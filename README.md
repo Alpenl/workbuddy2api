@@ -13,6 +13,7 @@
 - 🔑 **登录工具** — `login.sh` 交互式登录，落盘即生效
 - 🏗 **Docker 部署** — 一键 `docker compose up`，healthcheck 常驻
 - 📈 **请求级日志** — 每个 `/v1/chat/completions` 请求打表格日志（seq/TTFB/uid/tokens/latency）
+- 🔎 **日志控制台** — 持久化签到、聊天、调度和上游错误日志，支持组合筛选、自动刷新与历史分页
 - 🏥 **健康检查** — `/healthz` 无健康账号时返回 503，可接负载均衡器
 - 📉 **状态汇总** — `/status` 返回 total/healthy/cooling/disabled 计数 + 每账号完整画像
 - 🖥 **Web 控制台** — 账户状态、OAuth 登录、签到、积分、模型列表与聊天调试
@@ -128,6 +129,26 @@ Disabled ←────┘ (session 死亡，永久)
 2. **Top-5 候选**：按 credits 降序取前 5
 3. **加权随机**：按 credits 为权重抽签（credits 全 0 时均匀随机）
 4. **防惊群**：跳过 100ms 内刚被选中的账号（除非只剩 1 个）
+
+### 日志控制台
+
+登录 Web 控制台后打开“日志”（`/#/logs`），可查看全部保留的应用日志，按时间、级别、
+类别、自动/手动来源、账号 ID、模型、HTTP 状态及关键词组合筛选。点击记录展开完整内容，
+支持复制；默认每 5 秒刷新，加载更早记录时自动暂停刷新。
+
+日志默认写入 `state_file` 同目录的 `logs/events.jsonl`，也可用 `WB2A_LOG_DIR` 或
+`-log-dir` 指定。Docker 部署需持久化该目录，并确保运行用户可写。重启及重建容器后保留
+日志；最多保留最近 20,000 条或约 20 MiB，单条内容最多 16 KiB，超出时自动淘汰最旧记录。
+磁盘日志会定期压缩，压缩前文件可能达到约两倍保留容量。日志写入失败时页面显示警告。
+应用会脱敏常见令牌字段和配置的 API Key；日志仍应按内部运维数据保护。
+
+`GET /api/admin/logs` 沿用控制台 Bearer 鉴权，支持 `level`、`category`、`source`、`account`、
+`model`、`status`、`q`、RFC3339 格式 `since`/`until`、`limit`（1–200）和 `before` 游标。
+返回 `entries`、匹配总数 `total`、`has_more`、下一页 `next_before` 及存储状态。
+
+首次迁移可先停止旧容器并保存 `docker logs --timestamps` 的 stdout/stderr，再执行
+`wb2api -log-dir /path/to/logs -import-logs /path/to/docker.log`，导入成功后启动服务。
+导入命令仅接受空日志库，保留原始时间；已删除容器的历史日志无法凭空恢复。
 
 ### 请求级日志
 

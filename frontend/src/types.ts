@@ -1,4 +1,45 @@
-export type PageID = 'overview' | 'accounts' | 'models' | 'playground'
+export type PageID = 'overview' | 'accounts' | 'models' | 'playground' | 'logs'
+
+export interface LogEntry {
+  id: number
+  time: string
+  level: 'info' | 'warn' | 'error'
+  category: string
+  source?: string
+  account?: string
+  model?: string
+  status?: number
+  message: string
+}
+
+export interface LogPage {
+  entries: LogEntry[]
+  total: number
+  retained: number
+  has_more: boolean
+  next_before?: number
+  oldest?: string
+  newest?: string
+  accounts: string[]
+  models: string[]
+  max_entries: number
+  max_bytes: number
+  storage_ok: boolean
+}
+
+export interface LogFilters {
+  q?: string
+  level?: string
+  category?: string
+  source?: string
+  account?: string
+  model?: string
+  status?: string
+  since?: string
+  until?: string
+  before?: number
+  limit?: number
+}
 
 export interface AccountStatus {
   uid: string

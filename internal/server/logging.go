@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"workbuddy2api/internal/logstore"
 )
 
 // chatSeq 进程级请求序号。
@@ -30,6 +32,7 @@ type chatStat struct {
 	status int
 
 	logged bool
+	logs   *logstore.Store
 }
 
 // newChatStat 以请求进入 handler 的时刻为起点构造统计对象；toks 默认 -1（usage 缺失）。
@@ -47,7 +50,7 @@ func (s *chatStat) done() {
 		return
 	}
 	s.logged = true
-	logChatRow(s.ttfb, time.Since(s.start), s.model, s.mode, s.uid, s.status, s.toks)
+	logChatRow(s.ttfb, time.Since(s.start), s.model, s.mode, s.uid, s.status, s.toks, s.logs)
 }
 
 // chatStatsReader 在流式透传时抓取 SSE 末帧的 usage.completion_tokens 精确值，
@@ -155,14 +158,20 @@ func uidPrefix(uid string) string {
 
 // logChatRow 打印一行请求级表格日志（直接输出 stdout，无 log 时间戳前缀）。
 // toks<0 表示 usage 缺失，显示 "-"。
-func logChatRow(ttfb, total time.Duration, model, mode, uid string, status int, toks int) {
+func logChatRow(ttfb, total time.Duration, model, mode, uid string, status int, toks int, stores ...*logstore.Store) {
 	if !chatLogEnabled {
 		return
 	}
 	seq := chatSeq.Add(1)
-	if len(model) > 11 {
-		model = model[:11]
+	if len(model) > 256 {
+		model = model[:256]
 	}
+	model = strings.Map(func(r rune) rune {
+		if r < 32 || r == '|' {
+			return ' '
+		}
+		return r
+	}, model)
 	tokField := "-"
 	tokpsField := "-"
 	if toks >= 0 {
@@ -177,7 +186,7 @@ func logChatRow(ttfb, total time.Duration, model, mode, uid string, status int, 
 	if ttfb > 0 {
 		ttfbMS = fmt.Sprintf("%dms", ttfb.Milliseconds())
 	}
-	fmt.Fprintf(os.Stdout, "| #%03d | %s | %s | %s | %d | uid=%s | TTFB=%s | tok=%s | %stok/s | total=%.1fs |\n",
+	row := fmt.Sprintf("| #%03d | %s | %s | %s | %d | uid=%s | TTFB=%s | tok=%s | %stok/s | total=%.1fs |\n",
 		seq,
 		time.Now().Format("15:04:05"),
 		model,
@@ -189,4 +198,14 @@ func logChatRow(ttfb, total time.Duration, model, mode, uid string, status int, 
 		tokpsField,
 		total.Seconds(),
 	)
+	row = logstore.Redact(row)
+	if len(stores) > 0 && stores[0] != nil {
+		row = stores[0].Redact(row)
+		e := logstore.Parse(row, time.Now())
+		e.Model = model
+		e.Account = uidPrefix(uid)
+		e.Status = status
+		_ = stores[0].Record(e)
+	}
+	fmt.Fprint(os.Stdout, row)
 }

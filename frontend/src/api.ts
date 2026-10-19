@@ -5,6 +5,8 @@ import type {
   OAuthStartResponse,
   OperationReport,
   StatusResponse,
+  LogFilters,
+  LogPage,
 } from './types'
 
 let apiKey = ''
@@ -61,6 +63,14 @@ async function requestJSON<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getStatus(): Promise<StatusResponse> {
   return requestJSON<StatusResponse>('/status')
+}
+
+export function getLogs(filters: LogFilters = {}, signal?: AbortSignal): Promise<LogPage> {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== '') query.set(key, String(value))
+  }
+  return requestJSON<LogPage>(`/api/admin/logs?${query.toString()}`, { signal, cache: 'no-store' })
 }
 
 export function getModels(): Promise<ModelsResponse> {

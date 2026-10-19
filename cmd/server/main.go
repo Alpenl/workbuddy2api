@@ -4,14 +4,17 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"workbuddy2api/internal/auth"
+	"workbuddy2api/internal/logstore"
 	"workbuddy2api/internal/oauth"
 	"workbuddy2api/internal/pool"
 	"workbuddy2api/internal/scheduler"
@@ -21,7 +24,30 @@ import (
 
 func main() {
 	cfgPath := flag.String("config", "config.json", "path to config json")
+	logDir := flag.String("log-dir", os.Getenv("WB2A_LOG_DIR"), "persistent log directory (default: next to state_file)")
+	importLogs := flag.String("import-logs", "", "import a docker logs --timestamps file into an empty journal, then exit")
 	flag.Parse()
+	if *importLogs != "" {
+		if *logDir == "" {
+			log.Fatal("-import-logs requires -log-dir")
+		}
+		journal, err := logstore.Open(*logDir, logstore.Options{})
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer journal.Close()
+		f, err := os.Open(*importLogs)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		n, err := journal.ImportDocker(f)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("imported %d historical log lines\n", n)
+		return
+	}
 
 	cfg, err := Load(*cfgPath)
 	if err != nil {
@@ -34,6 +60,16 @@ func main() {
 			log.Fatalf("load config: %v", err)
 		}
 	}
+
+	if *logDir == "" {
+		*logDir = filepath.Join(filepath.Dir(cfg.StateFile), "logs")
+	}
+	journal, err := logstore.Open(*logDir, logstore.Options{Output: os.Stderr, Secrets: []string{cfg.APIKey}})
+	if err != nil {
+		log.Fatalf("open log journal: %v", err)
+	}
+	defer journal.Close()
+	log.SetOutput(journal)
 
 	auths, err := auth.LoadDir(cfg.AuthDir, cfg.Region)
 	if err != nil {
@@ -64,6 +100,7 @@ func main() {
 		AuthDir:      cfg.AuthDir,
 		Region:       cfg.Region,
 		APIKey:       cfg.APIKey,
+		Logs:         journal,
 		HardCooldown: cfg.HardCreditDur,
 		SoftCooldown: cfg.SoftRateDur,
 		ErrThreshold: cfg.Cooldown.ErrThresh,
@@ -87,7 +124,7 @@ func main() {
 		_ = srv.Shutdown(shutdownCtx)
 	}()
 
-	log.Printf("workbuddy2api listening on %s (api_key=%v)", cfg.Listen, cfg.APIKey != "")
+	log.Printf("workbuddy2api listening on %s (auth_enabled=%v)", cfg.Listen, cfg.APIKey != "")
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("http: %v", err)
 	}

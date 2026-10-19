@@ -91,6 +91,7 @@ import {
   LockKeyhole,
   Menu,
   MessageSquareText,
+  ScrollText,
   Moon,
   Sun,
   Users,
@@ -117,6 +118,7 @@ const navigation: Array<{ id: PageID; label: string; icon: Component }> = [
   { id: 'accounts', label: '账户', icon: Users },
   { id: 'models', label: '模型', icon: Boxes },
   { id: 'playground', label: '调试台', icon: MessageSquareText },
+  { id: 'logs', label: '日志', icon: ScrollText },
 ]
 
 const pageTitle = computed(() => navigation.find((item) => item.id === props.currentPage)?.label || '概览')
